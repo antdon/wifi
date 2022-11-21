@@ -1,0 +1,12 @@
+resolver: lts-14.20
+packages:
+- wifi
+extra-deps:
+    - cursor-0.3.2.0@sha256:f740872c165f2ab9dd386faa52eb167843379a484ac0482b630a2043ca9e9234,1656
+    - cursor-brick-0.1.0.1@sha256:38fdc31258e960a586cd64c9459a17f9e4fc6257b3da412348f0379f3877c7d5,1270
+nix:
+  path: [ "nixpkgs=https://github.com/NixOS/nixpkgs/archive/323fe92057bb38475a446ff5e18d3b388c2e4403.tar.gz" ]
+  add-gc-roots: true
+  packages:
+  - zlib
+
