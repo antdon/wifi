@@ -68,11 +68,25 @@ handleTuiEvent :: TuiState -> BrickEvent n e -> EventM n (Next TuiState)
 handleTuiEvent s e =
   case e of
     VtyEvent vtye ->
-      case vtye of
+      let mDo :: (TextFieldCursor -> Maybe TextFieldCursor) -> EventM n (Next TuiState)
+          mDo func = do
+            let tfc = stateCursor s
+            let tfc' = fromMaybe tfc $ func tfc
+            let s' = s {stateCursor = tfc'}
+            continue s'
+      in case vtye of
         EvKey (KChar 'q') [] -> halt s
+        EvKey KEsc [] -> halt s
+        EvKey KUp [] -> mDo textFieldCursorSelectPrevLine
+        EvKey (KChar 'k') [] -> mDo textFieldCursorSelectPrevLine
+        EvKey (KChar 'j') [] -> mDo textFieldCursorSelectNextLine
+        EvKey KDown [] -> mDo textFieldCursorSelectNextLine
         _ -> continue s
     _ -> continue s
 
 getNetworks :: IO String
 getNetworks =
   readProcess  "nmcli" ["connection"] []
+
+connectToNetwork network =
+  readProcessWithExitCode "nmcli" ["up", network] ""
