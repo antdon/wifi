@@ -20,8 +20,12 @@ import Text.Show.Pretty
 import System.Process
 import Cursor.Brick.TextField
 import Parser
+import Control.Monad.IO.Class
 
 import Cursor.TextField
+import Text.Printf (printf)
+import GHC.Real (Integral)
+import Data.Maybe (Maybe(Nothing))
 
 tui :: IO ()
 tui = do
@@ -31,7 +35,8 @@ tui = do
 
 data TuiState =
   TuiState
-    { stateCursor :: TextFieldCursor
+    { stateCursor :: TextFieldCursor,
+      listIndex :: Int
     }
   deriving (Show, Eq)
 
@@ -51,11 +56,9 @@ tuiApp =
 
 buildInitialState :: IO TuiState
 buildInitialState = do
-  path <- resolveFile' "example.txt"
-  maybeContents <- forgivingAbsence $ T.readFile (fromAbsFile path)
   contents <- getNetworks
-  let tfc = makeTextFieldCursor $ fromString  $ justNames contents
-  pure TuiState {stateCursor = tfc}
+  let tfc = makeTextFieldCursor $ fromString  $ stringify $ justNames contents
+  pure TuiState {stateCursor = tfc, listIndex = 0}
 
 drawTui :: TuiState -> [Widget ResourceName]
 drawTui ts = [ centerLayer $
@@ -68,19 +71,23 @@ handleTuiEvent :: TuiState -> BrickEvent n e -> EventM n (Next TuiState)
 handleTuiEvent s e =
   case e of
     VtyEvent vtye ->
-      let mDo :: (TextFieldCursor -> Maybe TextFieldCursor) -> EventM n (Next TuiState)
-          mDo func = do
+      let mDo :: (TextFieldCursor -> Maybe TextFieldCursor) -> Int -> EventM n (Next TuiState)
+          mDo func change = do
             let tfc = stateCursor s
+            let index = listIndex s
             let tfc' = fromMaybe tfc $ func tfc
-            let s' = s {stateCursor = tfc'}
-            continue s'
+            let index' = index + change
+            let sChange = s {stateCursor = tfc', listIndex = index'}
+            let sRemain = s {stateCursor = tfc', listIndex = index}
+            if' (func tfc == Nothing) (continue sRemain) (continue sChange)
       in case vtye of
         EvKey (KChar 'q') [] -> halt s
         EvKey KEsc [] -> halt s
-        EvKey KUp [] -> mDo textFieldCursorSelectPrevLine
-        EvKey (KChar 'k') [] -> mDo textFieldCursorSelectPrevLine
-        EvKey (KChar 'j') [] -> mDo textFieldCursorSelectNextLine
-        EvKey KDown [] -> mDo textFieldCursorSelectNextLine
+        EvKey KUp [] -> mDo textFieldCursorSelectPrevLine (-1)
+        EvKey (KChar 'k') [] -> mDo textFieldCursorSelectPrevLine (-1)
+        EvKey (KChar 'j') [] -> mDo textFieldCursorSelectNextLine 1
+        EvKey KDown [] -> mDo textFieldCursorSelectNextLine 1
+        EvKey KEnter [] -> handleEnter s
         _ -> continue s
     _ -> continue s
 
@@ -89,4 +96,25 @@ getNetworks =
   readProcess  "nmcli" ["connection"] []
 
 connectToNetwork network =
-  readProcessWithExitCode "nmcli" ["up", network] ""
+  readProcessWithExitCode "nmcli" ["connection", "up", network] ""
+
+connectSelected state = do
+  contents <- getNetworks
+  let names = justNames $ contents
+  let index = listIndex state
+  let network = indexify names [0,1..index-1]
+  connectToNetwork network
+  return state
+
+handleEnter :: TuiState -> EventM n (Next TuiState)
+handleEnter s = do
+  liftIO $ connectSelected s
+  continue s
+
+indexify :: Num b => [a] -> [b] -> a
+indexify (a:as) (b:bs) = indexify as bs
+indexify a b = head a
+
+if' :: Bool -> a -> a -> a
+if' True  x _ = x
+if' False _ y = y

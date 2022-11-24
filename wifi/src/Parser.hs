@@ -15,7 +15,7 @@ split' x current _
 
 lineSeperated input = split input '\n'
 spaceSeperated input = split input ' '
-justNames input = stringify $ map head $ map spaceSeperated $ tail (lineSeperated input)
+justNames input = map head $ map spaceSeperated $ tail (lineSeperated input)
 
 stringify :: [[Char]] -> [Char]
 stringify (x1:x2:xs) = x1 ++ "\n" ++ x2 ++ "\n" ++ stringify xs
