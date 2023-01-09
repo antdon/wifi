@@ -17,6 +17,11 @@ lineSeperated input = split input '\n'
 spaceSeperated input = split input ' '
 justNames input = map head $ map spaceSeperated $ tail (lineSeperated input)
 
+-- returns the fifth word of a sentence
+fifthWord :: String -> String
+fifthWord = head . drop 4 . words
+
+
 stringify :: [[Char]] -> [Char]
 stringify (x1:x2:xs) = x1 ++ "\n" ++ x2 ++ "\n" ++ stringify xs
 stringify (x:xs) = x ++ stringify xs

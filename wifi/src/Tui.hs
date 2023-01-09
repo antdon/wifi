@@ -57,7 +57,8 @@ tuiApp =
 buildInitialState :: IO TuiState
 buildInitialState = do
   contents <- getNetworks
-  let tfc = makeTextFieldCursor $ fromString  $ stringify $ justNames contents
+  rawCurrentConnected <- getCurrentConnection
+  let tfc = makeTextFieldCursor $ fromString  $ stringify $ ("Current Connection: " ++ fifthWord rawCurrentConnected) : justNames contents
   pure TuiState {stateCursor = tfc, listIndex = 0}
 
 drawTui :: TuiState -> [Widget ResourceName]
@@ -98,13 +99,16 @@ getNetworks =
 connectToNetwork network =
   readProcessWithExitCode "nmcli" ["connection", "up", network] ""
 
+-- returns the new textFieldCursor with a updated currently connected network
 connectSelected state = do
   contents <- getNetworks
+  rawCurrentConnected <- getCurrentConnection
   let names = justNames $ contents
   let index = listIndex state
   let network = indexify names [0,1..index-1]
   connectToNetwork network
-  return state
+  let tfc = makeTextFieldCursor $ fromString  $ stringify $ ("Current Connection: " ++ fifthWord rawCurrentConnected) : justNames contents
+  pure TuiState {stateCursor = tfc, listIndex = index-1}
 
 handleEnter :: TuiState -> EventM n (Next TuiState)
 handleEnter s = do
@@ -118,3 +122,11 @@ indexify a b = head a
 if' :: Bool -> a -> a -> a
 if' True  x _ = x
 if' False _ y = y
+
+-- gets the name of the network currently connected to
+getCurrentConnection :: IO String
+getCurrentConnection =
+  readProcess "nmcli" ["connection", "show", "--active"] []
+  
+
+  
